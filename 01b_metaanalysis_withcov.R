@@ -9,8 +9,8 @@ metaanalyses_withcov <- read_excel("/Users/ebraraltinalan/Desktop/GEO/final_with
 #only genes that appear in at least three datasets were taken into analysis
 
 merged_cleaned_filtered_withcov <- metaanalyses_withcov %>%
-  group_by(`Gene Symbol`) %>%                        # Gene bazında grupla
-  filter(n_distinct(Study) >= 3) %>%                # En az 3 farklı Study varsa tut
+  group_by(`Gene Symbol`) %>%                        
+  filter(n_distinct(Study) >= 3) %>%               
   ungroup() 
 
 # meta analysis: Random effects for each gene  Sidik-Jonkman estimator/ heterogeneity
@@ -20,7 +20,7 @@ library(readxl)
 library(tibble)
 library(writexl)
 
-# create a unique_genes list #It does not filter the rows. It only creates a list based on the gene symbol for the loop.
+# create a unique_genes list 
 unique_genes_withcov <- unique(merged_cleaned_filtered_withcov$`Gene Symbol`)
 
 # create a list for save the results
