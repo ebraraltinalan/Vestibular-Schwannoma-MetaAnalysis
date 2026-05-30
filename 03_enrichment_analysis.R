@@ -1,7 +1,7 @@
 #enrichment analysis GO
 
 #add gene name
-gene_info2 <- Homo_sapiens_gene_info %>%      #Selects gene symbol and gene name columns from a reference table.
+gene_info2 <- Homo_sapiens_gene_info %>%      
   select(V3, V9) %>%
   rename(`Gene Symbol` = V3, GeneName = V9)
 
@@ -32,7 +32,7 @@ entrez_ids <- mapIds(x = org.Hs.eg.db,         #org.Hs.eg.db: Bioconductor packa
                      keys = data$`Gene Symbol`,
                      column = "ENTREZID",
                      keytype = "SYMBOL",
-                     multiVals = "first")      #Removes duplicate ENTREZ IDs, keeping the first occurrence.
+                     multiVals = "first")      
 
 dat_mapped <- data %>%
   mutate(ENTREZID = as.character(entrez_ids)) %>%
@@ -40,7 +40,7 @@ dat_mapped <- data %>%
 
 data_mapped_clean <- dat_mapped %>%
   filter(!is.na(ENTREZID)) %>%   # 1) exclude NA
-  distinct(ENTREZID, .keep_all = TRUE)   # 2) Delete the duplicate ENTREZID entries, keep the first one
+  distinct(ENTREZID, .keep_all = TRUE)  
 
 
 data_mapped_clean %>%
@@ -53,13 +53,13 @@ data_mapped_clean %>%
 
 ## —— 3) Universe and significant list ——
 
-universe_entrez <- unique(data_mapped_clean$ENTREZID) #Defines the “universe” for enrichment as all mapped genes.
+universe_entrez <- unique(data_mapped_clean$ENTREZID)
 
 data_mapped_clean <- data_mapped_clean %>%
-  mutate(padj = p.adjust(meta_pval, method = "BH")) #Adjusts p-values from the meta-analysis using the Benjamini-Hochberg (BH) method.
+  mutate(padj = p.adjust(meta_pval, method = "BH")) 
 
 sig_genes_entrez <- data_mapped_clean %>%
-  filter(padj < 0.05 , abs(meta_LFc) > 0.5) %>%        # Selects significant genes (adjusted p-value < 0.05) for downstream enrichment analysis.
+  filter(padj < 0.05 , abs(meta_LFc) > 0.5) %>%       
   pull(ENTREZID) %>%
   unique()
 
@@ -68,15 +68,15 @@ sig_genes_entrez <- data_mapped_clean %>%
 ## ——  enrichGO (BP) + setReadable ——
 ego_bp <- enrichGO(gene          = sig_genes_entrez,    
                    universe      = universe_entrez,     
-                   OrgDb         = org.Hs.eg.db,        #Human gene annotation database.Provides information on which gene corresponds to which GO term.
+                   OrgDb         = org.Hs.eg.db,        
                    keyType       = "ENTREZID",
-                   ont           = "BP",                #Biological Process-focused analysis.
-                   pAdjustMethod = "BH",                #(False Discovery Rate, FDR).
-                   pvalueCutoff  = 0.05,                #Only GO terms with FDR < 0.05 are reported.
-                   qvalueCutoff  = 0.2,                 #Additional security filter, those with q < 0.2 are reported.
-                   readable      = FALSE)               #For now, the results are coming in as ENTREZ IDs.
+                   ont           = "BP",                
+                   pAdjustMethod = "BH",               
+                   pvalueCutoff  = 0.05,                
+                   qvalueCutoff  = 0.2,                 
+                   readable      = FALSE)              
 
-##  setReadable —— ENTREZ → Thus, when creating bar plots or tables, the names of the genes can be read.
+##  setReadable 
 ego_bp_read <- setReadable(ego_bp, OrgDb = org.Hs.eg.db, keyType = "ENTREZID")
 
 
@@ -197,16 +197,11 @@ ggsave("GO_BP_barplot_top10.png", plot = p, width = 7, height = 5, dpi = 300)
 ggsave("GO_BP_barplot_top10.pdf", plot = p, width = 7, height = 5)
 
 
-
-
-
-
-
 # barplot + count points -top15 
 g2 <- ggplot(df_3, aes(x = reorder(Description_wrapped, negLog10FDR),
                       y = negLog10FDR)) +
   geom_col(fill = "steelblue") +
-  geom_point(aes(y = negLog10FDR, size = Count), color = "red", shape = 21, stroke = 1.2) +    # shows how many genes are active in that pathway
+  geom_point(aes(y = negLog10FDR, size = Count), color = "red", shape = 21, stroke = 1.2) +    
   coord_flip() +
   labs(title = "GO Biological Process Enrichment (Top 20)",
        x = NULL,
@@ -218,12 +213,10 @@ g2 <- ggplot(df_3, aes(x = reorder(Description_wrapped, negLog10FDR),
 
 print(g2)
 
-# dosyaya kaydet
+
 ggsave("GO_BP_barplot_top20_custom.png", g2, width = 8, height = 6, dpi = 300)
 
 
-
-#renk oynama
 
 df_3 <- df_3 %>%
   mutate(Count_cat = factor(Count)) %>%
