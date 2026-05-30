@@ -24,7 +24,7 @@ write_xlsx(meta_analysis_genes_names_withcov, "meta_analysis_genes_names_withcov
 # Convert  Gene Symbol to  entrez ID
 
 ## —— Gene Symbol → ENTREZ ID  (mapIds) ——
-entrez_ids2 <- mapIds(x = org.Hs.eg.db,         #org.Hs.eg.db: Bioconductor package human gene anotation database
+entrez_ids2 <- mapIds(x = org.Hs.eg.db,        
                      keys = meta_analysis_genes_names_withcov$`Gene Symbol`,
                      column = "ENTREZID",
                      keytype = "SYMBOL",
@@ -101,7 +101,7 @@ library(stringr)
 # barplot
 p2 <- barplot(ego_bp2_read,
              showCategory = 10,
-             x = "GeneRatio",            # Count yerine oransal gösterim
+             x = "GeneRatio",           
              title = "GO Biological Process (Top 10)")
 
 # p2
