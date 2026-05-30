@@ -171,12 +171,12 @@ library(xml2)
    library(ggplot2)  
    
    # Create edge list
-   edges = drug_gene_interactions_unique_filtered[, c('Gene Symbol', 'Drug name', "general_function")]  # gene -> drug
+   edges = drug_gene_interactions_unique_filtered[, c('Gene Symbol', 'Drug name', "general_function")] 
    colnames(edges) = c("from", "to", "general_function")
 
    genes = unique(drug_gene_interactions_unique_filtered[, c('Gene Symbol', "meta_LFc")])
    genes$regulation = ifelse(genes$meta_LFc > 0, "up", "down")
-   colnames(genes)[1] = "name"  # for igraph
+   colnames(genes)[1] = "name"  
    
    # Create a unique list of drug nodes
    drugs = unique(data.frame(name = drug_gene_interactions_unique_filtered$`Drug name`, regulation = "drug"))
