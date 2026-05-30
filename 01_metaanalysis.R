@@ -15,9 +15,9 @@ library(dplyr)
 #only genes that appear in at least three datasets were taken into analysis
 
 merged_cleaned_filtered <- metaanalyses2 %>%
-  group_by(`Gene Symbol`) %>%                        # group by gene symbol
-  filter(n_distinct(Study) >= 3) %>%                   #keep genes present in ≥ 3 studies, and later for significant p-values (p < 0.05)
-  ungroup()                                         # remove group information
+  group_by(`Gene Symbol`) %>%                       
+  filter(n_distinct(Study) >= 3) %>%                  
+  ungroup()                                       
 
 
 # meta analysis: Random effects for each gene  Sidik-Jonkman estimator/ heterogeneity
@@ -39,7 +39,7 @@ for (x in unique_genes) {
   
   # at least three study
   if (nrow(tmp_df_genes) >= 3) {
-    tmp_meta_model <- rma.uni(      #random-effects meta-analysis
+    tmp_meta_model <- rma.uni(      
       yi = tmp_df_genes$meanLogFC,
       vi = tmp_df_genes$maxSE^2,
       method = "SJ"     #Sidik–Jonkman
