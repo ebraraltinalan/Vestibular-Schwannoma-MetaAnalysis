@@ -7,6 +7,7 @@ library(dplyr)
 library(metafor)
 library(readxl)
 library(writexl)
+library(tibble)
 
 metaanalyses2 <- read_excel("merged_cleaned_data.xlsx")
 
@@ -21,13 +22,8 @@ merged_cleaned_filtered <- metaanalyses2 %>%
 
 
 # meta analysis: Random effects for each gene  Sidik-Jonkman estimator/ heterogeneity
-library(dplyr)
-library(metafor)
-library(readxl)
-library(tibble)
-library(writexl)
 
-# create a unique_genes list #It does not filter the rows. It only creates a list based on the gene symbol for the loop.
+# unique_genes list 
 unique_genes <- unique(merged_cleaned_filtered$`Gene Symbol`)
 
 # create a list for save the results
