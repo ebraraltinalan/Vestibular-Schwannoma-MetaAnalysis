@@ -4,7 +4,7 @@ library(metafor)
 library(readxl)
 library(writexl)
 
-metaanalyses_withcov <- read_excel("/Users/ebraraltinalan/Desktop/GEO/final_withcov_geo/files/merged_cleaned_data_withcov.xlsx")
+metaanalyses_withcov <- read_excel("merged_cleaned_data_withcov.xlsx")
 
 #only genes that appear in at least three datasets were taken into analysis
 
