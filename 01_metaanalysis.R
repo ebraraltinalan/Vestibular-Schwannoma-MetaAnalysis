@@ -136,6 +136,21 @@ write_xlsx(
   "DEGs_abs_metaLFC_1_padj_0.05.xlsx"
 )
 
+# Volcano-style nominal subset: |metaLFC| > 1 and nominal meta_pval < 0.05
+genes_metaLFC_1_nominal <- meta_analysis_results %>%
+  filter(abs(meta_LFc) > 1, meta_pval < 0.05) %>%
+  mutate(
+    regulation = case_when(
+      meta_LFc > 0 ~ "Upregulated",
+      meta_LFc < 0 ~ "Downregulated",
+      TRUE ~ "No direction"
+    )
+  )
+
+write_xlsx(
+  genes_metaLFC_1_nominal,
+  "genes_abs_metaLFC_1_nominal_pval_0.05.xlsx"
+)
 
 # Summary counts
 summary_counts <- tibble::tibble(
