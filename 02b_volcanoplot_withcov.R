@@ -1,128 +1,196 @@
 #volcano_plot for withcovs
 
-library(ggrepel)
-library(ggplot2)
-library(gridExtra)
+library(readxl)
 library(dplyr)
-library(patchwork)
-
-# dataframe: meta_analysis_results_withcov.xlsx
-meta_analysis_results_withcov <- meta_analysis_results_withcov
-
-# Cutoff values
-
-lfc_cutoff2 <- 1
-pval_cutoff <- 0.05
-
-# Mark the significant / non-significant colours
-  all_genes_withcov_volcano <- meta_analysis_results_withcov %>%
-  mutate(significance = ifelse(abs(meta_LFc) > lfc_cutoff2 & meta_pval < pval_cutoff, "Significant", "NS"))
-
-x_min <- min(all_genes_withcov_volcano$meta_LFc, na.rm=TRUE) - 0.5
-x_max <- max(all_genes_withcov_volcano$meta_LFc, na.rm=TRUE) + 0.5
-
-
-# Only significant 50 genes
-top_genes_withcov <- all_genes_withcov_volcano %>%
-  filter(significance2 == "Significant") %>%
-  arrange(meta_pval) %>%
-  slice(1:50)  
-
-# Volcano plot
-p3 <- ggplot(all_genes_withcov_volcano, aes(x = meta_LFc, y = -log10(meta_pval), color = significance2)) +
-  geom_point(alpha = 0.6, size = 1.5) +
-  scale_color_manual(values = c("Significant" = "red", "NS" = "grey")) +
-  geom_vline(xintercept = c(-lfc_cutoff2, lfc_cutoff2), linetype = "dashed") +
-  geom_hline(yintercept = -log10(pval_cutoff), linetype = "dashed") +
-  geom_text_repel(
-    data = top_genes_withcov,
-    aes(label = `Gene Symbol`),
-    size = 3
-  ) +
-  labs(title = "Volcano Plot |Log2FC| > 1", x = "Log2 Fold Change", y = "-log10(p-value)") +
-  xlim(x_min, x_max) +
-  theme_minimal()
-
-# Save as PNG
-png("Volcano_plot_LFC1_top50_withcov.png", width = 1200, height = 800)
-print(p3)
-dev.off()
-
-colnames(meta_analysis_results_withcov)
-
-
-
-#or classfy by up/down regulated
-
 library(ggplot2)
 library(ggrepel)
-library(dplyr)
 
+base_dir <- "withcov_geo/files"
+
+volcano_file <- file.path(
+  base_dir,
+  "meta_analysis_results_withcov.xlsx"
+)
+
+output_dir <- file.path(
+  base_dir,
+  "volcano_padj_withcov"
+)
+
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
+meta_analysis_results_withcov <- read_excel(volcano_file)
+
+colnames(meta_analysis_results_withcov) <- trimws(colnames(meta_analysis_results_withcov))
+
+meta_analysis_results_withcov <- meta_analysis_results_withcov %>%
+  mutate(
+    meta_LFc = as.numeric(meta_LFc),
+    meta_pval = as.numeric(meta_pval)
+  )
+
+# If padj column does not exist, calculate it from meta_pval
+if (!"padj" %in% colnames(meta_analysis_results_withcov)) {
+  meta_analysis_results_withcov <- meta_analysis_results_withcov %>%
+    mutate(
+      padj = p.adjust(meta_pval, method = "BH")
+    )
+} else {
+  meta_analysis_results_withcov <- meta_analysis_results_withcov %>%
+    mutate(
+      padj = as.numeric(padj)
+    )
+}
+
+
+write_xlsx(
+  meta_analysis_results_withcov,
+  file.path(output_dir, "meta_analysis_results_withcov_with_padj.xlsx")
+)
 
 
 lfc_cutoff <- 1
-pval_cutoff <- 0.05
+padj_cutoff <- 0.05
+top_n <- 20
 
-all_genes_withcov_volcano2 <- meta_analysis_results_withcov %>%
+
+#Volcano data
+all_genes_volcano_withcov <- meta_analysis_results_withcov %>%
+  filter(!is.na(meta_LFc), !is.na(padj)) %>%
   mutate(
     regulation = case_when(
-      meta_LFc > lfc_cutoff & meta_pval < pval_cutoff ~ "Up-regulated",
-      meta_LFc < -lfc_cutoff & meta_pval < pval_cutoff ~ "Down-regulated",
+      meta_LFc > lfc_cutoff & padj < padj_cutoff ~ "Up-regulated",
+      meta_LFc < -lfc_cutoff & padj < padj_cutoff ~ "Down-regulated",
       TRUE ~ "NS"
-    )
+    ),
+    plot_padj = pmax(padj, 1e-50),
+    neg_log10_padj = -log10(plot_padj)
   )
 
+# Check gene counts
+table(all_genes_volcano_withcov$regulation)
 
-x_min2 <- min(all_genes_withcov_volcano2$meta_LFc, na.rm=TRUE) - 0.5
-x_max2 <- max(all_genes_withcov_volcano2$meta_LFc, na.rm=TRUE) + 0.5
-
-# Only signifcant 20 genes
-top_genes3 <- all_genes_withcov_volcano2 %>%
+all_genes_volcano_withcov %>%
   filter(regulation != "NS") %>%
-  arrange(meta_pval) %>%
-  slice(1:20)
+  count(regulation)
 
-# Volcano plot
-p4 <- ggplot(all_genes_withcov_volcano2, aes(x = meta_LFc, y = -log10(meta_pval), color = regulation)) +
-  geom_point(alpha = 0.6, size = 1.5) +
-  scale_color_manual(values = c("Up-regulated" = "red", "Down-regulated" = "blue", "NS" = "grey")) +
-  geom_vline(xintercept = c(-lfc_cutoff, lfc_cutoff), linetype = "dashed") +
-  geom_hline(yintercept = -log10(pval_cutoff), linetype = "dashed") +
-  geom_text_repel(
-    data = top_genes3,
-    aes(label = `Gene Symbol`),
-    size = 6,
-    fontface = "bold" 
+
+# labelled genes
+top_genes_withcov <- all_genes_volcano_withcov %>%
+  filter(regulation != "NS") %>%
+  arrange(padj) %>%
+  slice_head(n = top_n)
+
+top_genes_withcov %>%
+  select(`Gene Symbol`, meta_LFc, meta_pval, padj, neg_log10_padj, regulation)
+
+
+#Plot
+x_min <- min(all_genes_volcano_withcov$meta_LFc, na.rm = TRUE) - 0.5
+x_max <- max(all_genes_volcano_withcov$meta_LFc, na.rm = TRUE) + 0.5
+y_max <- max(all_genes_volcano_withcov$neg_log10_padj, na.rm = TRUE) + 1
+
+p_volcano_withcov <- ggplot(
+  all_genes_volcano_withcov,
+  aes(x = meta_LFc, y = neg_log10_padj, color = regulation)
+) +
+  geom_point(alpha = 0.6, size = 1.6, shape = 16) +
+  scale_color_manual(
+    values = c(
+      "Down-regulated" = "blue",
+      "NS" = "grey",
+      "Up-regulated" = "red"
+    ),
+    breaks = c("Down-regulated", "NS", "Up-regulated")
   ) +
-  labs(title = "Volcano Plot |Log2FC| > 1", x = "Log2 Fold Change", y = "-log10(p-value)") +
+  geom_vline(
+    xintercept = c(-lfc_cutoff, lfc_cutoff),
+    linetype = "dashed"
+  ) +
+  geom_hline(
+    yintercept = -log10(padj_cutoff),
+    linetype = "dashed"
+  ) +
+  geom_text_repel(
+    data = top_genes_withcov,
+    aes(
+      x = meta_LFc,
+      y = neg_log10_padj,
+      label = `Gene Symbol`
+    ),
+    inherit.aes = FALSE,
+    color = ifelse(top_genes_withcov$regulation == "Up-regulated", "red", "blue"),
+    size = 2.9,
+    fontface = "bold",
+    max.overlaps = Inf,
+    box.padding = 0.15,
+    point.padding = 0.1,
+    segment.color = "grey40",
+    segment.size = 0.25,
+    segment.alpha = 0.7,
+    min.segment.length = 0,
+    show.legend = FALSE
+  ) +
+  labs(
+    title = "Volcano Plot With Covariates Model",
+    x = "Meta-analysed log2 fold change (metaLFC)",
+    y = "-log10(adjusted p-value)",
+    color = NULL
+  ) +
+  coord_cartesian(
+    xlim = c(x_min, x_max),
+    ylim = c(0, y_max)
+  ) +
   scale_x_continuous(
-    limits = c(x_min2, x_max2),  
-    breaks = c(-4, -3, -2,-1, 0, 1, 2, 3, 4),      
-    labels = c("-4","-3", "-2", "-1", "0", "1", "2", "3", "4") 
+    breaks = seq(floor(x_min), ceiling(x_max), by = 1)
+  ) +
+  guides(
+    color = guide_legend(
+      override.aes = list(
+        shape = 16,
+        size = 4,
+        alpha = 1
+      )
+    )
   ) +
   theme_minimal() +
   theme(
     axis.text.x = element_text(face = "bold"),
-    axis.text.y = element_text(face = "bold")
+    axis.text.y = element_text(face = "bold"),
+    axis.title.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold"),
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 10)
   )
 
-# Save as PNG
-png("Volcano_plot_LFC1_top20_withcov_new.png", width = 1200, height = 800)
-print(p4)
-dev.off()
-ggsave("Volcano_plot_LFC1_top20_withcov.png", plot = p4, width = 12, height = 8, dpi = 150)
 
 
-# Count up- and down-regulated genes
-gene_counts <- all_genes_withcov_volcano2 %>%
-  filter(regulation != "NS") %>%   
-  summarise(
-    Up = sum(regulation == "Up-regulated"),
-    Down = sum(regulation == "Down-regulated"),
-    Total = n()
-  )
+ggsave(
+  filename = file.path(output_dir, "Volcano_plot_with_cov_metaLFC1_padj_top20.png"),
+  plot = p_volcano_withcov,
+  width = 12,
+  height = 8,
+  dpi = 300,
+  bg = "white"
+)
 
-gene_counts 
-#  Up  Down Total
-#  1   745   479  1224
+ggsave(
+  filename = file.path(output_dir, "Volcano_plot_with_cov_metaLFC1_padj_top20.pdf"),
+  plot = p_volcano_withcov,
+  width = 12,
+  height = 8,
+  bg = "white"
+)
+
+
+# Save labelled genes
+write.csv(
+  top_genes_withcov,
+  file.path(output_dir, "labelled_top20_genes_with_cov_padj.csv"),
+  row.names = FALSE
+)
+
+p_volcano_withcov
+
 
