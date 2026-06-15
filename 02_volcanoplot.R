@@ -1,116 +1,169 @@
 #volcano plot
-library(ggrepel)
-library(ggplot2)
-library(gridExtra)
+
+library(readxl)
 library(dplyr)
-library(patchwork)
-
-# dataframe: meta_analysis_results_all.xlsx
-meta_analysis_results_all <- meta_analysis_results_all
-
-
-lfc_cutoff1 <- 1
-pval_cutoff <- 0.05
-
-# Mark the significant / non-significant colours
-all_genes_volcano <- meta_analysis_results_all %>%
-  mutate(significance1 = ifelse(abs(meta_LFc) > lfc_cutoff1 & meta_pval < pval_cutoff, "Significant", "NS"))
-
-x_min <- min(all_genes_volcano$meta_LFc, na.rm=TRUE) - 0.5
-x_max <- max(all_genes_volcano$meta_LFc, na.rm=TRUE) + 0.5
-
-
-# Only significant 50 genes
-top_genes <- all_genes_volcano %>%
-  filter(significance1 == "Significant") %>%
-  arrange(meta_pval) %>%
-  slice(1:50)  # en düşük p-value'lu 50 gen
-
-# Volcano plot
-p2 <- ggplot(all_genes_volcano, aes(x = meta_LFc, y = -log10(meta_pval), color = significance1)) +
-  geom_point(alpha = 0.6, size = 1.5) +
-  scale_color_manual(values = c("Significant" = "red", "NS" = "grey")) +
-  geom_vline(xintercept = c(-lfc_cutoff1, lfc_cutoff1), linetype = "dashed") +
-  geom_hline(yintercept = -log10(pval_cutoff), linetype = "dashed") +
-  geom_text_repel(
-    data = top_genes,
-    aes(label = `Gene Symbol`),
-    size = 3
-  ) +
-  labs(
-    title = "Volcano Plot |metaLFC| > 1",
-    x = "Meta-analysed log2 fold change (metaLFC)",
-    y = "-log10(meta p-value)"
-  )
-
-# Save as PNG
-png("Volcano_plot_LFC1_top50.png", width = 1200, height = 800)
-print(p2)
-dev.off()
-
-
-
-#or classfy by up/down regulated
-
 library(ggplot2)
 library(ggrepel)
-library(dplyr)
 
-lfc_cutoff <- 1
-pval_cutoff <- 0.05
 
-# Volcano plot 
-all_genes_volcano2 <- meta_analysis_results_all %>%
-  mutate(
-    regulation = case_when(
-      meta_LFc > lfc_cutoff & meta_pval < pval_cutoff ~ "Up-regulated",
-      meta_LFc < -lfc_cutoff & meta_pval < pval_cutoff ~ "Down-regulated",
-      TRUE ~ "NS"
-    )
-  )
+base_dir <- "analysis"
 
-x_min2 <- min(all_genes_volcano2$meta_LFc, na.rm=TRUE) - 0.5
-x_max2 <- max(all_genes_volcano2$meta_LFc, na.rm=TRUE) + 0.5
-
-# Only signifcant 20 genes
-top_genes2 <- all_genes_volcano2 %>%
-  filter(regulation != "NS") %>%
-  arrange(meta_pval) %>%
-  slice(1:20)
-
-# Volcano plot
-p5 <- ggplot(all_genes_volcano2, aes(x = meta_LFc, y = -log10(meta_pval), color = regulation)) +
-  geom_point(alpha = 0.6, size = 1.5) +
-  scale_color_manual(values = c("Up-regulated" = "red", "Down-regulated" = "blue", "NS" = "grey")) +
-  geom_vline(xintercept = c(-lfc_cutoff, lfc_cutoff), linetype = "dashed") +
-  geom_hline(yintercept = -log10(pval_cutoff), linetype = "dashed") +
-  geom_text_repel(
-    data = top_genes2,
-    aes(label = `Gene Symbol`),
-    size = 6,
-    fontface = "bold" 
-  ) +
-  labs(
-    title = "Volcano Plot |metaLFC| > 1",
-    x = "Meta-analysed log2 fold change (metaLFC)",
-    y = "-log10(meta p-value)"
-  ) +
-
-  scale_x_continuous(
-    limits = c(x_min2, x_max2),  # mevcut aralıkları koru
-    breaks = c(-4, -3, -2,-1, 0, 1, 2, 3, 4),      # sadece -1, 0 ve 1 değerlerini göster
-    labels = c("-4","-3", "-2", "-1", "0", "1", "2", "3", "4") # istersen metinleri özelleştirebilirsin
-  ) +
-  theme_minimal() +
-theme(
-  axis.text.x = element_text(face = "bold"),
-  axis.text.y = element_text(face = "bold")
+volcano_file <- file.path(
+  base_dir,
+  "rechecked_without_cov",
+  "meta_analysis_results_all_with_padj.xlsx"
 )
 
-# Save as PNG
-png("Volcano_plot_LFC1_top20.png", width = 1200, height = 800,bg = "white")
-print(p5)
-dev.off()
+output_dir <- file.path(
+  base_dir,
+  "rechecked_without_cov",
+  "volcano_padj"
+)
+
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 
+meta_analysis_results_all <- read_excel(volcano_file)
 
+colnames(meta_analysis_results_all) <- trimws(colnames(meta_analysis_results_all))
+
+meta_analysis_results_all <- meta_analysis_results_all %>%
+  mutate(
+    meta_LFc = as.numeric(meta_LFc),
+    meta_pval = as.numeric(meta_pval),
+    padj = as.numeric(padj)
+  )
+
+
+lfc_cutoff <- 1
+padj_cutoff <- 0.05
+top_n <- 20
+
+
+# Volcano data
+all_genes_volcano <- meta_analysis_results_all %>%
+  filter(!is.na(meta_LFc), !is.na(padj)) %>%
+  mutate(
+    regulation = case_when(
+      meta_LFc > lfc_cutoff & padj < padj_cutoff ~ "Up-regulated",
+      meta_LFc < -lfc_cutoff & padj < padj_cutoff ~ "Down-regulated",
+      TRUE ~ "NS"
+    ),
+    plot_padj = pmax(padj, 1e-50),
+    neg_log10_padj = -log10(plot_padj)
+  )
+
+# Select labelled genes and axis limits
+
+
+top_genes <- all_genes_volcano %>%
+  filter(regulation != "NS") %>%
+  arrange(padj) %>%
+  slice_head(n = top_n)
+
+top_genes %>%
+  select(`Gene Symbol`, meta_LFc, meta_pval, padj, neg_log10_padj, regulation)
+
+
+x_min <- min(all_genes_volcano$meta_LFc, na.rm = TRUE) - 0.5
+x_max <- max(all_genes_volcano$meta_LFc, na.rm = TRUE) + 0.5
+y_max <- max(all_genes_volcano$neg_log10_padj, na.rm = TRUE) + 1
+
+
+#  Plot
+
+
+p_volcano_nocov <- ggplot(
+  all_genes_volcano,
+  aes(x = meta_LFc, y = neg_log10_padj, color = regulation)
+) +
+  geom_point(alpha = 0.6, size = 1.6, shape = 16) +
+  scale_color_manual(
+    values = c(
+      "Down-regulated" = "blue",
+      "NS" = "grey",
+      "Up-regulated" = "red"
+    ),
+    breaks = c("Down-regulated", "NS", "Up-regulated")
+  ) +
+  geom_vline(
+    xintercept = c(-lfc_cutoff, lfc_cutoff),
+    linetype = "dashed"
+  ) +
+  geom_hline(
+    yintercept = -log10(padj_cutoff),
+    linetype = "dashed"
+  ) +
+  geom_text_repel(
+    data = top_genes,
+    aes(
+      x = meta_LFc,
+      y = neg_log10_padj,
+      label = `Gene Symbol`
+    ),
+    inherit.aes = FALSE,
+    color = ifelse(top_genes$regulation == "Up-regulated", "red", "blue"),
+    size = 2.9,
+    fontface = "bold",
+    max.overlaps = Inf,
+    box.padding = 0.15,
+    point.padding = 0.1,
+    segment.color = NA,
+    show.legend = FALSE
+  ) +
+  labs(
+    title = "Volcano Plot Without Covariates Model",
+    x = "meta log2 fold change (metaLFC)",
+    y = "-log10(adjusted p-value)",
+    color = NULL
+  ) +
+  coord_cartesian(
+    xlim = c(x_min, x_max),
+    ylim = c(0, y_max)
+  ) +
+  scale_x_continuous(
+    breaks = seq(floor(x_min), ceiling(x_max), by = 1)
+  ) +
+  guides(
+    color = guide_legend(
+      override.aes = list(
+        shape = 16,
+        size = 4,
+        alpha = 1
+      )
+    )
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(face = "bold"),
+    axis.text.y = element_text(face = "bold"),
+    axis.title.x = element_text(face = "bold"),
+    axis.title.y = element_text(face = "bold"),
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.title = element_blank()
+  )
+
+ggsave(
+  filename = file.path(output_dir, "Volcano_plot_without_cov_metaLFC1_padj_top20.png"),
+  plot = p_volcano_nocov,
+  width = 12,
+  height = 8,
+  dpi = 300,
+  bg = "white"
+)
+
+ggsave(
+  filename = file.path(output_dir, "Volcano_plot_without_cov_metaLFC1_padj_top20.pdf"),
+  plot = p_volcano_nocov,
+  width = 12,
+  height = 8,
+  bg = "white"
+)
+
+#Save labelled genes
+write.csv(
+  top_genes,
+  file.path(output_dir, "labelled_top20_genes_without_cov_padj2.csv"),
+  row.names = FALSE
+)
+p_volcano_nocov
