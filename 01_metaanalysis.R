@@ -8,7 +8,7 @@ library(metafor)
 library(readxl)
 library(writexl)
 
-metaanalyses2 <- read_excel("/Users/ebraraltinalan/Desktop/merged_cleaned_data.xlsx")
+metaanalyses2 <- read_excel("merged_cleaned_data.xlsx")
 
 library(dplyr)
 
