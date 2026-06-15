@@ -82,7 +82,7 @@ meta_analysis_results_withcov <- meta_analysis_results_withcov %>%
     padj = p.adjust(meta_pval, method = "BH")
   )
 
-# Save full meta-analysis results including nominal and adjusted p-values
+
 write_xlsx(
   meta_analysis_results_withcov,
   "meta_analysis_results_withcov.xlsx"
