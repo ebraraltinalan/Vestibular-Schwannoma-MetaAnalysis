@@ -33,7 +33,7 @@ results_list <- list()
 for (x in unique_genes) {
   tmp_df_genes <- merged_cleaned_filtered[merged_cleaned_filtered$`Gene Symbol` == x, ]
   
-  # at least three study
+  # at least three study ##random-effects meta-analysis
   if (nrow(tmp_df_genes) >= 3) {
     tmp_meta_model <- rma.uni(      
       yi = tmp_df_genes$meanLogFC,
